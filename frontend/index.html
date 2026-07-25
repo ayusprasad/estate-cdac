@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuRAG Enterprise AI</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+</head>
+<body>
+    <div class="background-mesh">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+    </div>
+    
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header glass-panel">
+            <div class="logo">
+                <span class="logo-icon">▲</span>
+                <span class="logo-text">DocuRAG</span>
+            </div>
+            <nav class="nav-links">
+                <a href="#upload-panel" class="nav-link active">Upload</a>
+                <a href="#chat-panel" class="nav-link">Chat</a>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <!-- Hero Section -->
+            <section class="hero-section" id="hero">
+                <h1 class="hero-title">Enterprise <span class="text-gradient">Document Intelligence</span></h1>
+                <p class="hero-subtitle">Upload, process, and converse with your documents using advanced AI-driven Retrieval-Augmented Generation.</p>
+            </section>
+
+            <!-- Workspace containing Upload and Chat -->
+            <div class="workspace">
+                <!-- Upload Section -->
+                <section class="upload-section glass-panel" id="upload-panel">
+                    <div class="section-header">
+                        <h2>Knowledge Base</h2>
+                        <p>Upload documents to enrich the AI context.</p>
+                    </div>
+                    
+                    <div class="drop-zone" id="drop-zone">
+                        <div class="drop-zone-content">
+                            <div class="upload-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                            </div>
+                            <span class="drop-title">Drag & drop files here</span>
+                            <span class="drop-desc">or click to browse from your computer</span>
+                        </div>
+                        <input type="file" id="file-input" multiple hidden>
+                    </div>
+
+                    <div class="upload-status" id="upload-status">
+                        <!-- Upload item list injected via JS -->
+                    </div>
+                </section>
+
+                <!-- Chat Section -->
+                <section class="chat-section glass-panel" id="chat-panel">
+                    <div class="chat-header">
+                        <h2>Document Assistant</h2>
+                        <span class="status-badge"><span class="pulse"></span> Online</span>
+                    </div>
+
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message ai-message">
+                            <div class="avatar ai-avatar">▲</div>
+                            <div class="message-bubble">
+                                Hello! I'm ready to assist you. Upload a document or ask me a question about your existing knowledge base.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <form id="chat-form">
+                            <input type="text" id="chat-input" placeholder="Ask anything about your documents..." autocomplete="off">
+                            <button type="submit" class="send-btn" aria-label="Send Message">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="11" y1="2" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            </button>
+                        </form>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

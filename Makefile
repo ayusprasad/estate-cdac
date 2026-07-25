@@ -1,4 +1,4 @@
-.PHONY: help install dev-install lint format type-check test test-cov migrate migrate-create run docker-up docker-down setup-dirs clean
+.PHONY: help install dev-install lint format type-check test test-cov migrate migrate-create run setup-dirs clean
 
 PYTHON := python
 UVICORN_CMD := uvicorn app.main:app
@@ -37,12 +37,6 @@ run: ## Start the FastAPI dev server
 
 setup-dirs: ## Create required runtime directories
 	$(PYTHON) scripts/setup_dirs.py
-
-docker-up: ## Start Docker services
-	docker compose up -d
-
-docker-down: ## Stop Docker services
-	docker compose down
 
 clean: ## Remove Python cache files
 	find . -type f -name '*.pyc' -delete

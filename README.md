@@ -11,7 +11,6 @@
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Quick Start (Native Windows)](#quick-start-native-windows)
-- [Quick Start (Docker)](#quick-start-docker)
 - [Phase Roadmap](#phase-roadmap)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
@@ -64,7 +63,6 @@ Key design principles:
 | OCR | Tesseract + pytesseract, easyocr |
 | Word/Excel | python-docx, openpyxl |
 | Language Detection | langdetect |
-| Container | Docker + Docker Compose |
 | Testing | pytest + pytest-asyncio |
 | Linting | ruff, mypy |
 
@@ -94,7 +92,6 @@ docurag/
 ├── alembic/                 # Database migrations
 ├── tests/                   # Test suites
 ├── frontend/                # Web UI
-├── docker/                  # Docker configurations
 ├── scripts/                 # Dev & ops helper scripts
 ├── data/                    # Runtime data (gitignored)
 ├── models/                  # LLM model files (gitignored)
@@ -138,21 +135,6 @@ alembic upgrade head
 
 # 7. Start the API server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
----
-
-## Quick Start (Docker)
-
-```bash
-# Start all services
-docker compose up -d
-
-# Run migrations
-docker compose exec api alembic upgrade head
-
-# View logs
-docker compose logs -f api
 ```
 
 ---

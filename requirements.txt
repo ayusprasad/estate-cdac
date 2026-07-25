@@ -2,6 +2,7 @@
 # DocuRAG — Python Dependencies
 # Python 3.11+ | CPU-optimised build
 # ============================================================
+--extra-index-url https://download.pytorch.org/whl/cpu
 
 # --- Core Framework ---
 fastapi==0.111.0
@@ -30,7 +31,6 @@ pydantic-settings==2.3.4
 pdfplumber==0.11.2
 pypdf==4.3.1
 pdf2image==1.17.0
-fitz==0.0.1.dev2
 PyMuPDF==1.24.7
 
 # --- OCR ---
@@ -62,7 +62,6 @@ langdetect==1.0.9
 aiofiles==23.2.1
 python-magic-bin==0.4.14
 chardet==5.2.0
-hashlib-compat==1.0.0
 
 # --- Logging ---
 structlog==24.4.0
