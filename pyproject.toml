@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=70.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "docurag"
+version = "0.1.0"
+description = "Enterprise AI Document Intelligence and RAG System"
+requires-python = ">=3.11"
+authors = [{name = "DocuRAG Team"}]
+license = {text = "MIT"}
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "ANN", "C4", "PT", "SIM", "RUF"]
+ignore = ["ANN101", "ANN102", "ANN401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "config"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+warn_return_any = true
+warn_unused_configs = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=app --cov-report=term-missing --cov-report=html -v"
+
+[tool.coverage.run]
+omit = ["tests/*", "alembic/*", "scripts/*"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "config*"]
