@@ -11,12 +11,14 @@ from sentence_transformers import SentenceTransformer
 
 from src.database_models.chunk_model import Chunk
 from application_configuration.logger_setup import get_logger
+from application_configuration.environment_settings import get_settings
 
 logger = get_logger(__name__)
+settings = get_settings()
 
 # Global cache for the embedding model to avoid reloading it on every call
 _model = None
-MODEL_NAME = 'all-MiniLM-L6-v2'
+MODEL_NAME = settings.embedding.model
 
 def get_model():
     global _model

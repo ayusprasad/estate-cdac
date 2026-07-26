@@ -305,6 +305,8 @@ class TestCustomExceptions:
         )
         assert "abc123" in str(exc)
         assert exc.context["checksum"] == "abc123"
+        assert exc.existing_doc_id == "doc-uuid-here"
+        assert exc.checksum == "abc123"
 
     def test_file_size_limit_error(self) -> None:
         exc = FileSizeLimitError(

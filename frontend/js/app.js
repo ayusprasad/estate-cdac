@@ -142,7 +142,21 @@ document.addEventListener('DOMContentLoaded', () => {
             typingEl.remove();
             
             // Add AI message
-            appendMessage(reply, 'ai');
+            let finalReply = reply;
+            
+            // Append citations if available
+            if (data.citations && data.citations.length > 0) {
+                finalReply += '\n\n**Sources:**\n';
+                data.citations.forEach(c => {
+                    finalReply += `[${c.rank}] ${c.document_name} (Page ${c.page_number})\n`;
+                });
+            }
+            
+            if (data.faithfulness) {
+                finalReply += `\n*Faithfulness: ${(data.faithfulness * 100).toFixed(0)}%*`;
+            }
+
+            appendMessage(finalReply, 'ai');
 
         } catch (error) {
             console.error(error);
@@ -167,11 +181,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function escapeHtml(unsafe) {
-        return unsafe
+        if (!unsafe) return '';
+        let escaped = unsafe
              .replace(/&/g, "&amp;")
              .replace(/</g, "&lt;")
              .replace(/>/g, "&gt;")
              .replace(/"/g, "&quot;")
              .replace(/'/g, "&#039;");
+        
+        // Basic markdown formatting
+        return escaped
+             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+             .replace(/\*(.*?)\*/g, '<em>$1</em>')
+             .replace(/\n/g, '<br>');
     }
 });

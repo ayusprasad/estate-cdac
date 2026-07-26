@@ -131,6 +131,14 @@ async def process_document_extraction(document_id: str, session_maker) -> None:
             
             await embed_document_chunks(document_id, db)
             
+            # Phase 11: Knowledge Graph Extraction
+            from src.document_processing.knowledge_graph_extractor import build_knowledge_graph
+            document.status = DocumentStatus.EMBEDDING  # Reuse EMBEDDING state for KG 
+            await db.commit()
+            
+            # Extract Spacy NLP entities and build NetworkX Graph
+            await build_knowledge_graph(document_id, db)
+            
             document.status = DocumentStatus.READY
             await db.commit()
             logger.info("Full document ingestion pipeline completed!", document_id=str(document_id))

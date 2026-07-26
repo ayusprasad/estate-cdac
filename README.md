@@ -57,9 +57,10 @@ Key design principles:
 | Database | PostgreSQL 15 + pgvector |
 | Task Queue | Celery + Redis |
 | ORM | SQLAlchemy 2.0 (async) + Alembic |
-| LLM Runtime | llama.cpp (GGUF, CPU) |
-| Embeddings | sentence-transformers (CPU) |
-| PDF Parsing | pdfplumber, pypdf |
+| LLM Runtime | llama.cpp (Qwen2.5-14B-Instruct Q4_K_M GGUF, CPU) |
+| Embeddings | BAAI/bge-small-en-v1.5 (CPU) |
+| Knowledge Graph | NetworkX / Neo4j (Planned Phase 11) |
+| PDF Parsing | pdfplumber, pypdf, OpenDataLoader |
 | OCR | Tesseract + pytesseract, easyocr |
 | Word/Excel | python-docx, openpyxl |
 | Language Detection | langdetect |
@@ -145,13 +146,16 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 |---|---|---|
 | 0 | Project foundation, config, logging, DB schema | ✅ Complete |
 | 1 | Document ingestion & classification pipeline | ✅ Complete |
-| 2 | OCR pipeline, table/formula extraction | 🔜 Planned |
-| 3 | Semantic chunking, embedding generation | 🔜 Planned |
-| 4 | Retrieval engine, hybrid search, reranking | 🔜 Planned |
-| 5 | RAG generation with citation grounding | 🔜 Planned |
-| 6 | SQL integration agent | 🔜 Planned |
-| 7 | Evaluation framework & quality metrics | 🔜 Planned |
-| 8 | Frontend UI | 🔜 Planned |
+| 2 | OCR pipeline, table/formula extraction | ✅ Complete |
+| 3 | Semantic chunking, embedding generation | ✅ Complete |
+| 4 | Vector Embedding & Indexing (pgvector) | ✅ Complete |
+| 5 | Hybrid Retrieval Engine & Reranker | ✅ Complete |
+| 6 | Query Planner & Intent Router | ✅ Complete |
+| 7 | SQL Database Integration Agent | ✅ Complete |
+| 8 | llama.cpp Local RAG Generation | ✅ Complete |
+| 9 | Citation & Verification Engine | ✅ Complete |
+| 10 | Evaluation & Quality Benchmarks | ✅ Complete |
+| 11 | Knowledge Graph Integration & GraphRAG | 🔜 Planned |
 
 ---
 

@@ -39,6 +39,8 @@ class UnsupportedFileTypeError(IngestionError):
             f"Unsupported file type '{file_type}' for file '{filename}'.",
             context={"file_type": file_type, "filename": filename},
         )
+        self.file_type = file_type
+        self.filename = filename
 
 
 class FileSizeLimitError(IngestionError):
@@ -49,6 +51,9 @@ class FileSizeLimitError(IngestionError):
             f"File '{filename}' ({size_bytes:,} bytes) exceeds limit ({limit_bytes:,} bytes).",
             context={"filename": filename, "size_bytes": size_bytes, "limit_bytes": limit_bytes},
         )
+        self.filename = filename
+        self.size_bytes = size_bytes
+        self.limit_bytes = limit_bytes
 
 
 class DuplicateDocumentError(IngestionError):
@@ -57,8 +62,10 @@ class DuplicateDocumentError(IngestionError):
     def __init__(self, checksum: str, existing_doc_id: str) -> None:
         super().__init__(
             f"Document with checksum '{checksum}' already exists (id={existing_doc_id}).",
-            context={"checksum": checksum, "existing_doc_id": existing_doc_id},
+            context={"checksum": checksum, "existing_doc_id": str(existing_doc_id)},
         )
+        self.checksum = checksum
+        self.existing_doc_id = str(existing_doc_id)
 
 
 # ── Classification Exceptions ─────────────────────────────────────────────────
@@ -85,8 +92,9 @@ class DocumentNotFoundError(DatabaseError):
     def __init__(self, document_id: str) -> None:
         super().__init__(
             f"Document with id='{document_id}' not found.",
-            context={"document_id": document_id},
+            context={"document_id": str(document_id)},
         )
+        self.document_id = str(document_id)
 
 
 # ── Processing Exceptions ─────────────────────────────────────────────────────

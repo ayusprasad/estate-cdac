@@ -145,7 +145,8 @@ async def upload_document(
     except DuplicateDocumentError as exc:
         logger.info(f"Document already exists, returning existing ID {exc.existing_doc_id}")
         # Gracefully return the existing document to make the UX seamless
-        result = await db.execute(select(Document).where(Document.id == exc.existing_doc_id))
+        # Must wrap existing_doc_id in UUID() — SQLAlchemy UUID columns reject plain strings
+        result = await db.execute(select(Document).where(Document.id == UUID(exc.existing_doc_id)))
         existing_doc = result.scalar_one()
         return DocumentUploadResponse(
             document_id=existing_doc.id,

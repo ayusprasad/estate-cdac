@@ -115,7 +115,7 @@ class EmbeddingSettings(BaseSettings):
     """Embedding model configuration (CPU-optimised)."""
 
     model: str = Field(
-        default="sentence-transformers/all-MiniLM-L6-v2",
+        default="BAAI/bge-small-en-v1.5",
         alias="EMBEDDING_MODEL",
     )
     device: str = Field(default="cpu", alias="EMBEDDING_DEVICE")
