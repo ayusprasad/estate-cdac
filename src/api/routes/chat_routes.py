@@ -22,6 +22,11 @@ from src.database_models.database_connection import get_db
 from src.retrieval.search_router import SearchRouter
 from src.llm.generator import get_generator
 from src.llm.citation_verifier import CitationVerifier
+from src.shared_utilities.chat_history_logger import (
+    log_chat_interaction,
+    CHAT_HISTORY_JSONL,
+    CHAT_HISTORY_MD,
+)
 from application_configuration.logger_setup import get_logger
 
 router = APIRouter()
@@ -129,13 +134,26 @@ async def chat_query(request: ChatQuery, db=Depends(get_db)):
         # Build structured citation list
         citations = [CitationItem(**c) for c in gen_result.get("citations", [])]
 
+        # ── Log Q&A to persistent history file ──────────────────────────
+        total_latency = result.latency_ms + gen_result["latency_ms"]
+        log_chat_interaction(
+            query=request.query,
+            answer=gen_result["answer"],
+            mode=gen_result["mode"],
+            intent=result.intent,
+            faithfulness=faithfulness,
+            citations=gen_result.get("citations", []),
+            latency_ms=total_latency,
+            document_ids=request.document_ids,
+        )
+
         return ChatResponse(
             answer=gen_result["answer"],
             mode=gen_result["mode"],
             intent=result.intent,
             faithfulness=faithfulness,
             citations=citations,
-            latency_ms=result.latency_ms + gen_result["latency_ms"],
+            latency_ms=total_latency,
             generation_ms=gen_result["latency_ms"],
             sources=result.chunks,
             llm_available=gen_result["llm_available"],
@@ -147,6 +165,43 @@ async def chat_query(request: ChatQuery, db=Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
+
+
+@router.get(
+    "/history",
+    summary="Get saved chat Q&A history",
+    tags=["chat"],
+)
+async def chat_history(limit: int = 50):
+    """
+    Return recent user questions and generated answers stored in data/chat_history.jsonl.
+    """
+    if not CHAT_HISTORY_JSONL.exists():
+        return {
+            "total_records": 0,
+            "jsonl_file": str(CHAT_HISTORY_JSONL),
+            "md_file": str(CHAT_HISTORY_MD),
+            "history": [],
+        }
+
+    import json
+    records = []
+    try:
+        with open(CHAT_HISTORY_JSONL, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    records.append(json.loads(line.strip()))
+    except Exception as exc:
+        logger.error("Failed to read chat history", error=str(exc))
+
+    # Return most recent records up to limit
+    recent = records[-limit:][::-1]
+    return {
+        "total_records": len(records),
+        "jsonl_file": str(CHAT_HISTORY_JSONL),
+        "md_file": str(CHAT_HISTORY_MD),
+        "history": recent,
+    }
 
 
 @router.get(

@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const uploadedDocIds = [];
     // 1. Drag & Drop Upload Logic
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
@@ -72,16 +73,49 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error(`Upload failed with status ${response.status}`);
             
             const data = await response.json();
-            
-            // Update UI on success
-            const spinner = itemEl.querySelector('.spinner');
-            const idText = itemEl.querySelector('.upload-item-id');
-            
-            spinner.outerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
-            
             const docId = data.document_id || data.id || id;
-            idText.textContent = `ID: ${docId}`;
-            idText.style.color = '#4ade80';
+            
+            const idText = itemEl.querySelector('.upload-item-id');
+            idText.textContent = `Processing & Indexing...`;
+            idText.style.color = '#facc15';
+
+            // Poll status until READY or FAILED
+            let isReady = false;
+            for (let attempt = 0; attempt < 60; attempt++) {
+                await new Promise(r => setTimeout(r, 1000));
+                try {
+                    const statusRes = await fetch(`/api/v1/documents/${docId}/status`);
+                    if (statusRes.ok) {
+                        const statusData = await statusRes.json();
+                        const st = (statusData.status || '').toLowerCase();
+                        if (st === 'ready' || st === 'completed') {
+                            isReady = true;
+                            break;
+                        }
+                        if (st === 'failed') {
+                            throw new Error(statusData.error_message || 'Indexing failed');
+                        }
+                        idText.textContent = `Status: ${st}...`;
+                    }
+                } catch (e) {
+                    console.warn('Status poll warning:', e);
+                }
+            }
+
+            // Update UI on completion
+            const spinner = itemEl.querySelector('.spinner');
+            if (isReady) {
+                spinner.outerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+                uploadedDocIds.push(docId);
+                idText.textContent = `Ready: ${docId.substring(0, 8)}...`;
+                idText.style.color = '#4ade80';
+            } else {
+                // Timeout or default ready fallback
+                spinner.outerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+                uploadedDocIds.push(docId);
+                idText.textContent = `Uploaded: ${docId.substring(0, 8)}...`;
+                idText.style.color = '#4ade80';
+            }
 
         } catch (error) {
             console.error(error);
@@ -130,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/v1/chat/query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: message })
+                body: JSON.stringify({ query: message, document_ids: uploadedDocIds.length > 0 ? uploadedDocIds : null })
             });
             
             if (!response.ok) throw new Error("Chat query failed");
@@ -141,22 +175,71 @@ document.addEventListener('DOMContentLoaded', () => {
             // Remove typing indicator
             typingEl.remove();
             
-            // Add AI message
-            let finalReply = reply;
+            // Build rich AI response
+            const msgEl = document.createElement('div');
+            msgEl.className = 'message ai-message';
             
-            // Append citations if available
+            // Parse answer text - convert [N] references to citation badges
+            let answerHtml = escapeHtml(data.answer || data.response || '');
+            answerHtml = answerHtml.replace(/\[(\d+)\]/g, '<span class="citation-badge" data-source="$1" onclick="highlightSource($1)">$1</span>');
+            
+            // Mode badge
+            const modeIcon = data.mode === 'llm' ? '🤖' : '📋';
+            const modeLabel = data.mode === 'llm' ? 'LLM Generated' : 'Extractive';
+            
+            let citationsHtml = '';
             if (data.citations && data.citations.length > 0) {
-                finalReply += '\n\n**Sources:**\n';
+                citationsHtml = '<div class="sources-container"><div class="sources-header">📎 Sources</div>';
                 data.citations.forEach(c => {
-                    finalReply += `[${c.rank}] ${c.document_name} (Page ${c.page_number})\n`;
+                    const docName = c.document_name || 'Document';
+                    const pageNum = c.page_number != null ? c.page_number : '—';
+                    const relevance = c.relevance_score != null ? (c.relevance_score * 100).toFixed(0) : '—';
+                    const section = c.section_title ? `<span class="source-section">§ ${escapeHtml(c.section_title)}</span>` : '';
+                    citationsHtml += `
+                        <div class="source-card" id="source-${c.rank}">
+                            <div class="source-rank">${c.rank}</div>
+                            <div class="source-details">
+                                <div class="source-doc-name">${escapeHtml(docName)}</div>
+                                <div class="source-meta">
+                                    <span class="source-page">📄 Page ${pageNum}</span>
+                                    ${section}
+                                    <span class="source-relevance">Relevance: ${relevance}%</span>
+                                </div>
+                            </div>
+                        </div>`;
                 });
+                citationsHtml += '</div>';
             }
             
-            if (data.faithfulness) {
-                finalReply += `\n*Faithfulness: ${(data.faithfulness * 100).toFixed(0)}%*`;
+            // Faithfulness meter  
+            let faithHtml = '';
+            if (data.faithfulness != null && data.faithfulness !== undefined) {
+                const pct = (data.faithfulness * 100).toFixed(0);
+                const color = data.faithfulness >= 0.8 ? '#4ade80' : data.faithfulness >= 0.5 ? '#facc15' : '#ef4444';
+                faithHtml = `
+                    <div class="faithfulness-meter">
+                        <span class="faith-label">Grounding</span>
+                        <div class="faith-bar-bg">
+                            <div class="faith-bar-fill" style="width: ${pct}%; background: ${color}"></div>
+                        </div>
+                        <span class="faith-value" style="color: ${color}">${pct}%</span>
+                    </div>`;
             }
-
-            appendMessage(finalReply, 'ai');
+            
+            msgEl.innerHTML = `
+                <div class="avatar ai-avatar">▲</div>
+                <div class="message-bubble ai-bubble">
+                    <div class="answer-header">
+                        <span class="mode-badge">${modeIcon} ${modeLabel}</span>
+                    </div>
+                    <div class="answer-text">${answerHtml}</div>
+                    ${citationsHtml}
+                    ${faithHtml}
+                </div>
+            `;
+            
+            chatMessages.appendChild(msgEl);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
 
         } catch (error) {
             console.error(error);
@@ -196,3 +279,12 @@ document.addEventListener('DOMContentLoaded', () => {
              .replace(/\n/g, '<br>');
     }
 });
+
+function highlightSource(num) {
+    const el = document.getElementById('source-' + num);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('source-highlight');
+        setTimeout(() => el.classList.remove('source-highlight'), 2000);
+    }
+}

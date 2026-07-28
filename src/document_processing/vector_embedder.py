@@ -5,9 +5,14 @@ Computes semantic vectors for extracted chunks using CPU-optimised
 Sentence Transformers (llama.cpp could also be used here if GGUF models are preferred).
 """
 import datetime
+import os
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sentence_transformers import SentenceTransformer
+
+# Enforce strict offline mode to prevent HuggingFace connection retries
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
 from src.database_models.chunk_model import Chunk
 from application_configuration.logger_setup import get_logger
@@ -23,8 +28,12 @@ MODEL_NAME = settings.embedding.model
 def get_model():
     global _model
     if _model is None:
-        logger.info(f"Loading embedding model {MODEL_NAME}...")
-        _model = SentenceTransformer(MODEL_NAME, device='cpu')
+        logger.info(f"Loading embedding model {MODEL_NAME} (Offline Mode)...")
+        try:
+            _model = SentenceTransformer(MODEL_NAME, device='cpu', local_files_only=True)
+        except Exception as err:
+            logger.warning("local_files_only load failed, falling back to default", error=str(err))
+            _model = SentenceTransformer(MODEL_NAME, device='cpu')
     return _model
 
 
@@ -38,9 +47,11 @@ async def embed_document_chunks(document_id: str, db: AsyncSession) -> None:
     model = await asyncio.to_thread(get_model)
     
     # Fetch all chunks for this document that don't have embeddings yet
+    from uuid import UUID
+    doc_uuid = UUID(document_id) if isinstance(document_id, str) else document_id
     result = await db.execute(
         select(Chunk)
-        .where(Chunk.document_id == document_id)
+        .where(Chunk.document_id == doc_uuid)
         .where(Chunk.embedding.is_(None))
     )
     chunks = result.scalars().all()

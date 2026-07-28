@@ -141,21 +141,18 @@ _ANALYTICAL_PATTERNS = re.compile(
 )
 
 _NUMERICAL_PATTERNS = re.compile(
-    r"\b(how\s+much|how\s+many|calculate|computation|formula|percentage|ratio"
-    r"|average|median|sum|total|count|statistics|metric|measure|value|score"
-    r"|rate|growth|increase|decrease)\b|\d{1,3}[%$€£¥]|\$\d",
+    r"\b(how\s+much|how\s+many|calculate|percentage|ratio"
+    r"|average|median|sum|total|count|statistics)\b|\d{1,3}[%$€£¥]|\$\d",
     re.IGNORECASE,
 )
 
 _TABULAR_PATTERNS = re.compile(
-    r"\b(table|row|column|spreadsheet|excel|csv|grid|data\s+in|list\s+of"
-    r"|records?\s+(of|for|from)|entries|dataset)\b",
+    r"\b(spreadsheet|excel|csv|show.*table|data.*table|table.*data)\b",
     re.IGNORECASE,
 )
 
 _SQL_PATTERNS = re.compile(
-    r"\b(sql|database|query|select|from\s+table|join|group\s+by|order\s+by"
-    r"|where\s+clause|schema|stored\s+procedure|view|index)\b",
+    r"\b(select.*from|group\s+by|order\s+by|sql\s+query|run\s+sql|execute\s+query)\b",
     re.IGNORECASE,
 )
 
@@ -167,8 +164,7 @@ _SUMMARISATION_PATTERNS = re.compile(
 )
 
 _IMAGE_PATTERNS = re.compile(
-    r"\b(figure|fig\.|diagram|chart|graph|image|illustration|picture|plot"
-    r"|visual|photograph|caption)\b",
+    r"\b(figure|fig\.|diagram|chart|graph|image|illustration|caption)\b",
     re.IGNORECASE,
 )
 
@@ -195,15 +191,15 @@ def _strategy_for_intent(intent: QueryIntent) -> RetrievalStrategy:
         QueryIntent.ANALYTICAL: RetrievalStrategy(top_k=8, alpha=0.6, use_reranker=True),
         QueryIntent.NUMERICAL: RetrievalStrategy(
             top_k=5, alpha=0.5, use_reranker=True,
-            chunk_types=["table", "formula", "text"],
+            chunk_types=None,
         ),
         QueryIntent.TABULAR: RetrievalStrategy(
             top_k=8, alpha=0.4, use_reranker=True,
-            chunk_types=["table"],
+            chunk_types=["table", "text"],
         ),
         QueryIntent.SQL_DATA: RetrievalStrategy(
-            top_k=0, alpha=0.0, use_reranker=False,
-            use_sql_agent=True,
+            top_k=5, alpha=0.7, use_reranker=True,
+            use_sql_agent=False,
         ),
         QueryIntent.MULTILINGUAL: RetrievalStrategy(
             top_k=5, alpha=0.85, use_reranker=True,
@@ -213,7 +209,7 @@ def _strategy_for_intent(intent: QueryIntent) -> RetrievalStrategy:
         ),
         QueryIntent.IMAGE: RetrievalStrategy(
             top_k=5, alpha=0.6, use_reranker=True,
-            chunk_types=["caption", "text"],
+            chunk_types=None,
         ),
         QueryIntent.GENERAL: RetrievalStrategy(top_k=5, alpha=0.7, use_reranker=True),
     }

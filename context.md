@@ -1,8 +1,10 @@
+---
+docurag-context: v3.27-07-2026
+---
+
 # DocuRAG — Project Context & System Architecture
 
 > **Purpose of this File**: This document serves as the persistent single source of truth for the **DocuRAG** project. It contains hardware specifications, system architecture, tech stack details, complete directory structures, development workflows, phase-by-phase status, and current active task guidelines to ensure AI coding assistants retain full context across sessions.
-
----
 
 ## 1. System Overview & Core Philosophy
 
@@ -10,12 +12,10 @@
 
 ### Core Principles
 - **Accuracy & Grounding over Speed**: Every answer must map back to explicit evidence (Document ID, Page Number, Section, Bounding Box / Table Row).
-- **CPU-First & Memory-Efficient**: Designed specifically to run on consumer-grade laptop hardware without discrete GPUs.
+- **CPU-First and Memory-Efficient**: Designed specifically to run on consumer-grade laptop hardware without discrete GPUs.
 - **Local & Open Source**: No cloud API dependencies. Local LLM runtime powered by `llama.cpp` using quantized GGUF models.
 - **Unified Vector + Relational Storage**: PostgreSQL + `pgvector` for combined relational metadata and vector embeddings.
 - **Modular & Agentic**: Micro-agent architecture for document classification, parsing, chunking, hybrid retrieval, SQL routing, and citation verification.
-
----
 
 ## 2. Target Hardware Specifications
 
@@ -27,14 +27,12 @@ All architectural and model selection decisions are optimized for the following 
 | **RAM** | 16 GB DDR4/DDR5 |
 | **GPU / iGPU** | Intel Iris Xe Graphics (Shared memory, CPU-first inference) |
 | **OS** | Windows 11 (PowerShell environment) |
-| **Storage** | NVMe SSD (Local storage constraints apply) |
+| **Storage** | NVMe SSD |
 | **LLM Engine** | `llama.cpp` (GGUF quantized models — Q4_K_M / Q5_K_M) |
-
----
 
 ## 3. Tech Stack & Environment
 
-| Component Layer | Technology Selected |
+| Component | Technology |
 |---|---|
 | **Programming Language** | Python 3.11+ |
 | **API Framework** | FastAPI + Uvicorn |
@@ -49,8 +47,6 @@ All architectural and model selection decisions are optimized for the following 
 | **LLM Runtime** | `llama.cpp` Python bindings (Qwen2.5-14B-Instruct Q4_K_M GGUF) |
 | **Task Queue / Cache** | Redis 7+ / Celery (Optional async workers) |
 | **Testing & Quality** | `pytest`, `pytest-asyncio`, `ruff`, `mypy` |
-
----
 
 ## 4. Project Directory Structure
 
@@ -84,45 +80,59 @@ estate/ (DocuRAG Root)
 │   └── setup_postgres.py             # Database & pgvector setup
 ├── src/                              # Main Application Source Code
 │   ├── main_application.py           # FastAPI entrypoint app
-│   ├── api/                          # REST Web API layer
-│   │   ├── v1_router.py              # API v1 Router aggregator
-│   │   └── routes/                   # Route handlers
+│   ├── api/
+│   │   ├── __init__.py               # API package initializer
+│   │   └── routes/
+│   │       ├── __init__.py           # API routes package initializer
+│   │       ├── health_routes.py      # System diagnostic endpoints
 │   │       ├── document_routes.py    # Ingestion & document upload endpoints
-│   │       ├── search_routes.py      # Search & retrieval endpoints
-│   │       ├── chat_routes.py        # Conversational RAG endpoints
-│   │       ├── sql_routes.py         # Phase 7: SQL database management & NL query
-│   │       └── health_routes.py      # System diagnostic endpoints
-│   ├── database_models/              # SQLAlchemy ORM Data Models
+│   │       ├── search_routes.py      # Hybrid retrieval engine & intent router
+│   │       ├── sql_routes.py         # NL→SQL agent endpoints
+│   │       ├── chat_routes.py        # Full RAG pipeline (retrieval+generate+verify)
+│   │       └── eval_routes.py        # Evaluation metrics endpoints
+│   ├── database_models/
+│   │   ├── __init__.py               # ORM imports initializer
 │   │   ├── database_connection.py    # Async engine & session makers
 │   │   ├── shared_enums.py           # Document & Job Status Enums
 │   │   ├── document_model.py         # Parent Document entity
 │   │   ├── page_model.py             # Page-level metadata & extracted layout
 │   │   ├── chunk_model.py            # Text chunk & vector embedding entity
 │   │   └── processing_job_model.py   # Async job execution tracking
-│   ├── document_processing/          # Data Ingestion & Extraction Pipeline
-│   │   ├── ingestion_pipeline.py     # Orchestrator for document flow
-│   │   ├── document_classifier.py    # Digital vs Scanned vs Mixed classifier
-│   │   ├── data_extractor.py         # OpenDataLoader extraction engine
-│   │   ├── semantic_chunker.py       # Layout & boundary-aware chunking
-│   │   ├── vector_embedder.py        # SentenceTransformers embedding generator
-│   │   └── processing_schemas.py     # Pydantic schemas for processing pipeline
-│   ├── retrieval/                    # Hybrid Retrieval Engine
+│   ├── document_processing/
+│   │   ├── __init__.py               # Data processing package initializer
+│   │   ├── canonical_json_model.py   # Structured document output format
+│   │   ├── ingestion_pipeline.py     # Document flow orchestrator
+│   │   ├── unified_parser.py         # Multi-format parser
+│   │   ├── semantic_chunker.py       # Layout-aware chunking
+│   │   ├── vector_embedder.py        # GGUF embedding generator
+│   │   ├── data_extractor.py         # Extraction pipeline
+│   │   ├── document_classifier.py    # Digital vs Scanned classifier
+│   │   └── processing_schemas.py     # Schemas for processing pipeline
+│   ├── retrieval/
+│   │   ├── __init__.py               # Retrieval package initializer
 │   │   ├── engine.py                 # Core hybrid retrieval engine
-│   │   ├── retriever.py              # Vector & BM25 retrieval components
-│   │   ├── reranker.py               # Cross-Encoder score reranker
-│   │   ├── search_router.py          # Phase 6: Search route intent classifier
-│   │   ├── query_planner.py          # Phase 6: Multi-step query decomposition
-│   │   ├── search_service.py         # Phase 5: High-level search orchestration
-│   │   └── sql_agent.py              # Phase 7: NL→SQL agent with schema grounding
-│   ├── llm/                          # Local LLM Runtime Integration
-│   │   └── generator.py              # llama.cpp prompt runner & streaming
-│   └── shared_utilities/             # Shared helpers
-│       ├── file_operations.py        # Safe file saving & hashing
-│       └── text_cleaning.py          # Text normalization utilities
-└── tests/                            # Pytest test suite
+│   │   ├── retriever.py              # Retrieval components
+│   │   ├── agent_orchestrator.py     # Retrieval agent coordination
+│   │   ├── query_expander.py         # Query expansion
+│   │   ├── reranker.py               # Cross-encoder reranking
+│   │   ├── search_router.py          # Intent routing engine
+│   │   ├── query_planner.py          # Query intent classification
+│   │   └── sql_agent.py              # SQL agent implementation
+│   ├── llm/
+│   │   ├── __init__.py               # LLM package initializer
+│   │   ├── generator.py              # RAG generation engine (llama.cpp or extractive)
+│   │   ├── citation_verifier.py      # Faithfulness scoring
+│   │   └── evaluator.py              # Quality metrics evaluation
+│   └── shared_utilities/
+│       ├── __init__.py               # Shared utilities package initializer
+│       ├── text_cleaning.py          # Text normalization utilities
+│       └── file_operations.py        # Safe file operations
+│   └── shared_utilities/chat_history_logger.py  # Chat history persistence
+├── tests/                            # Pytest test suite
+│   ├── __init__.py
+│   └── test_chat_history.py  # Example test file
+└── .gitignore                        # Git ignore file
 ```
-
----
 
 ## 5. Phase-by-Phase Progress & Roadmap
 
@@ -135,13 +145,11 @@ estate/ (DocuRAG Root)
 | **Phase 4** | **Vector Embedding & Indexing** | ✅ Complete | `all-MiniLM-L6-v2` embeds chunks and stores vectors into PostgreSQL via `pgvector`. |
 | **Phase 5** | **Hybrid Retrieval Engine & Reranker** | ✅ Complete | Vector Cosine + BM25 keyword search + cross-encoder reranking via `cross-encoder/ms-marco-MiniLM-L-6-v2`. |
 | **Phase 6** | **Query Planner & Intent Router** | ✅ Complete | 9 intents: FACTUAL/ANALYTICAL/NUMERICAL/TABULAR/SQL_DATA/MULTILINGUAL/SUMMARISATION/IMAGE/GENERAL. |
-| **Phase 7** | **SQL Database Integration Agent** | ✅ Complete | NL→SQL agent (`sql_agent.py`). Schema inspection, safe SELECT-only, citation results. `/api/v1/sql/*`. |
-| **Phase 8** | **llama.cpp Local RAG Generation** | ✅ Complete | Dual-mode: llama.cpp GGUF (Qwen2.5-14B) or extractive fallback. `generator.py`. |
+| **Phase 7** | **SQL Database Integration Agent** | ✅ Complete | NL→SQL agent with schema inspection, safe SELECT-only, citation results. `/api/v1/sql/*`. |
+| **Phase 8** | **llama.cpp Local RAG Generation** | ✅ Complete | Dual-mode: llama.cpp GGUF (Qwen2.5-14B-Instruct) or extractive fallback. |
 | **Phase 9** | **Citation & Verification Engine** | ✅ Complete | Lexical overlap faithfulness scorer (`citation_verifier.py`). Returns 0.0–1.0 + per-sentence grounding map. |
-| **Phase 10**| **Evaluation & Quality Benchmarks** | ✅ Complete | Precision@K, Recall@K, MRR, NDCG@K, P95 latency, faithfulness distribution. `evaluator.py` + `/api/v1/eval/*`. |
-| **Phase 11**| **Knowledge Graph & GraphRAG** | 🔜 Planned | Extract entities/relations to build a Knowledge Graph (NetworkX/Neo4j) to support multi-hop reasoning over the dataset. |
-
----
+| **Phase 10**| **Evaluation & Quality Benchmarks** | ✅ Complete | Precision@K, Recall@K, MRR, NDCG@K, P95 latency, faithfulness distribution. |
+| **Phase 11**| **Knowledge Graph & GraphRAG** | 🔜 Planned | Extract entities/relations to build Knowledge Graph for multi-hop reasoning. |
 
 ## 6. Daily Execution & PowerShell Commands
 
@@ -163,38 +171,17 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 # Start Uvicorn backend with hot reloading
 uvicorn src.main_application:app --reload --host 0.0.0.0 --port 8000
 ```
+
 - **Web Interface**: `http://localhost:8000/`
 - **Swagger API Docs**: `http://localhost:8000/docs`
 - **ReDoc Documentation**: `http://localhost:8000/redoc`
 
----
-
-## 7. Current Focus: Phase 7 (SQL Database Integration Agent)
+## 7. Current Focus: Phase 7 (SQL Database Agent) and Phase 8-10 Integration
 
 ### Phase 7 Architecture
-
-When the QueryPlanner detects `SQL_DATA` intent (keywords: sql, database, query, select, schema...), it routes to the SQLAgent instead of the vector search pipeline:
-
-```
-NL Query
-    │
-    ▼  QueryPlanner detects SQL_DATA intent
-    ▼
- SQLAgent.query()
-    │
-    ├── SchemaInspector.inspect()   ← Reads table/column names (cached)
-    │
-    ├── SQLQueryBuilder.build()     ← NL → safe SELECT SQL
-    │
-    ├── SafeQueryExecutor.validate()← Blocks INSERT/UPDATE/DELETE/DROP etc.
-    │
-    ├── SafeQueryExecutor.execute() ← Runs SELECT against target DB
-    │
-    └── SQLResultFormatter.format() ← Rows → CitedChunk dicts (same as vector search)
-```
+When the QueryPlanner detects `SQL_DATA` intent (keywords: sql, database, query, select, schema...), it routes queries through the SQLAgent instead of the vector search pipeline.
 
 ### New API Endpoints (Phase 7)
-
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/v1/sql/connect` | Register a SQLite or PostgreSQL database |
@@ -216,5 +203,43 @@ curl -X POST http://localhost:8000/api/v1/sql/query `
   -d '{"query": "how many records are in orders?", "db_label": "mydb"}'
 ```
 
+## 8. Recent Commit History (Summary)
+
+```
+0b50188 Implement Phase 5-10 features and fix RAG LLM pollution bugs
+e9a0725 Initial commit
+73b7e70 aaaaaaaaaaaaaaaaaa
+```
+
+The repository contains multiple recently modified files including:
+
+- `src/api/routes/search_routes.py` (Phase 5/6 search endpoints)
+- `src/api/routes/chat_routes.py` (Full RAG pipeline)
+- `src/api/routes/sql_routes.py` (SQL integration)
+- `src/api/routes/eval_routes.py` (Evaluation endpoints)
+- `src/llm/generator.py` (RAG generation engine)
+- `src/llm/citation_verifier.py` (Faithfulness scoring)
+- `src/llm/evaluator.py` (Evaluation metrics)
+
+Git status shows modified files including:
+- src/api/routes/chat_routes.py
+- src/api/routes/search_routes.py
+- src/document_processing/semantic_chunker.py
+- src/document_processing/vector_embedder.py
+- ... and others indicating active development
+
+## 9. Daily Commands Archive
+
+```powershell
+# Directory initialization scripts
+python scripts/setup_dirs.py
+python scripts/setup_postgres.py
+
+# Database schema management
+alembic upgrade head
+alembic revision --autogenerate -m "Describe changes" && alembic upgrade
+```
+
 ---
+
 *Created and maintained automatically for continuous context retention.*

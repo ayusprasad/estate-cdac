@@ -137,7 +137,12 @@ class LLMSettings(BaseSettings):
     n_threads: int = Field(default=8, alias="LLM_N_THREADS")
     n_gpu_layers: int = Field(default=0, alias="LLM_N_GPU_LAYERS")  # 0 = CPU only
 
-    model_config = SettingsConfigDict(populate_by_name=True)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+    )
 
 
 class OCRSettings(BaseSettings):

@@ -19,15 +19,17 @@ loaded once and cached as a module-level singleton to avoid reloading
 the model weights on every request.
 
 Prompt engineering principles:
+  - Uses proper ChatML format (<|im_start|>/<|im_end|>) for Qwen2.5 compatibility
   - System prompt strictly instructs the model to answer ONLY from context
   - Context is injected as numbered citations [1], [2], etc.
   - Temperature = 0.1 (near-deterministic, reduces hallucination)
   - Max tokens = 1024 (sufficient for most answers, respects 16 GB RAM limit)
-  - All chunk text is truncated to MAX_CHUNK_CHARS to fit within context window
+  - Chunk text is truncated at sentence boundaries to preserve coherence
 """
 from __future__ import annotations
 
 import asyncio
+import re
 import textwrap
 import time
 from pathlib import Path
@@ -41,7 +43,10 @@ settings = get_settings()
 
 # Maximum characters from each chunk inserted into the prompt.
 # Keeps prompt within a safe context window for quantized models.
-MAX_CHUNK_CHARS = 800
+MAX_CHUNK_CHARS = 1200
+
+# Approximate characters per token for budget estimation
+CHARS_PER_TOKEN = 3.5
 
 # Module-level llama.cpp instance (loaded once, reused on every request)
 _llm = None
@@ -55,8 +60,10 @@ def _try_load_llama() -> None:
     Gracefully handles missing model file or missing llama-cpp-python package.
     """
     global _llm, _llm_available
+    get_settings.cache_clear()
+    current_settings = get_settings()
 
-    model_path: Path = settings.llm.model_path.resolve()
+    model_path: Path = current_settings.llm.model_path.resolve()
 
     if not model_path.exists():
         logger.warning(
@@ -67,21 +74,31 @@ def _try_load_llama() -> None:
         _llm_available = False
         return
 
+    # Skip loading if the filename indicates it's intentionally disabled
+    if "disabled" in model_path.name.lower():
+        logger.warning(
+            "LLM model is disabled by name — running in extractive fallback mode",
+            model_path=str(model_path),
+            hint="Rename or replace the model file to enable LLM generation",
+        )
+        _llm_available = False
+        return
+
     try:
         from llama_cpp import Llama  # type: ignore
 
         logger.info(
             "Loading llama.cpp GGUF model",
             model_path=str(model_path),
-            n_threads=settings.llm.n_threads,
-            n_ctx=settings.llm.context_size,
-            n_gpu_layers=settings.llm.n_gpu_layers,
+            n_threads=current_settings.llm.n_threads,
+            n_ctx=current_settings.llm.context_size,
+            n_gpu_layers=current_settings.llm.n_gpu_layers,
         )
         _llm = Llama(
             model_path=str(model_path),
-            n_ctx=settings.llm.context_size,
-            n_threads=settings.llm.n_threads,
-            n_gpu_layers=settings.llm.n_gpu_layers,
+            n_ctx=current_settings.llm.context_size,
+            n_threads=current_settings.llm.n_threads,
+            n_gpu_layers=current_settings.llm.n_gpu_layers,
             verbose=False,
         )
         _llm_available = True
@@ -107,42 +124,77 @@ def _try_load_llama() -> None:
 _try_load_llama()
 
 
-# ── Prompt Builder ─────────────────────────────────────────────────────────────
+# ── Text Utilities ─────────────────────────────────────────────────────────────
 
-def _build_rag_prompt(query: str, chunks: List[Dict[str, Any]]) -> str:
+def _truncate_at_sentence(text: str, max_chars: int) -> str:
     """
-    Construct a citation-grounded RAG prompt.
-
-    Format (llama-3 / Mistral / Phi compatible):
-        <system>
-        You are DocuRAG ...
-        </system>
-        <context>
-        [1] Document: ... Page: ... Section: ...
-        <text>...</text>
-        ...
-        </context>
-        <question>
-        ...
-        </question>
-        Answer:
+    Truncate text at the last complete sentence boundary within max_chars.
+    Falls back to word boundary if no sentence boundary found.
+    Avoids cutting mid-word or mid-sentence.
     """
-    system = textwrap.dedent("""
-        You are DocuRAG, an enterprise document intelligence assistant.
-        You MUST answer ONLY using the numbered source excerpts provided below.
-        Do NOT invent facts, figures, or citations not present in the excerpts.
-        When referencing a source use its number, e.g. [1], [2].
-        If the excerpts do not contain enough information to answer, say so explicitly.
-    """).strip()
+    if len(text) <= max_chars:
+        return text
 
+    truncated = text[:max_chars]
+
+    # Try to find the last sentence boundary (. ! ?)
+    last_sentence_end = -1
+    for match in re.finditer(r'[.!?]\s', truncated):
+        last_sentence_end = match.end()
+
+    if last_sentence_end > max_chars * 0.5:  # At least half the text
+        return truncated[:last_sentence_end].strip()
+
+    # Fall back to last word boundary
+    last_space = truncated.rfind(' ')
+    if last_space > max_chars * 0.3:
+        return truncated[:last_space].strip() + "..."
+
+    return truncated.strip() + "..."
+
+
+# ── Prompt Builder (ChatML format for Qwen2.5) ────────────────────────────────
+
+# System prompt with strict grounding rules
+_SYSTEM_PROMPT = textwrap.dedent("""\
+    You are DocuRAG, a document analysis assistant. Follow these rules strictly:
+
+    1. ONLY answer using the numbered source excerpts provided below.
+    2. If the sources do not contain enough information, respond EXACTLY with:
+       "The uploaded documents do not contain sufficient information to answer this question."
+    3. NEVER use your training knowledge, prior facts, or assumptions.
+    4. After each claim or fact, cite the source number: [1], [2], etc.
+    5. Be precise, factual, and concise.
+    6. If multiple sources support a point, cite all relevant ones: [1][3].
+    7. Do not repeat the question. Go straight to the answer.
+""")
+
+
+def _build_rag_prompt(query: str, chunks: List[Dict[str, Any]], enrichment_text: Optional[str] = None) -> str:
+    """
+    Build a ChatML formatted prompt for Qwen2.5 incorporating retrieved context,
+    optional agent enrichment insights (e.g. mathematical proofs), and strict grounding instructions.
+    """
+    # Build numbered source context with metadata labels
     context_parts = []
+    token_budget = int(settings.llm.context_size * CHARS_PER_TOKEN * 0.6)  # 60% for context
+    used_chars = 0
+
+    if enrichment_text:
+        context_parts.append(enrichment_text)
+        used_chars += len(enrichment_text)
+
     for chunk in chunks:
         rank = chunk.get("rank", "?")
         doc_name = chunk.get("document_name", "Unknown")
         page = chunk.get("page_number")
         section = chunk.get("section_title")
-        text = chunk.get("text", "").strip()[:MAX_CHUNK_CHARS]
+        text = chunk.get("text", "").strip()
 
+        # Truncate at sentence boundary instead of hard character cut
+        text = _truncate_at_sentence(text, MAX_CHUNK_CHARS)
+
+        # Build location header
         loc_parts = [f"Document: {doc_name}"]
         if page:
             loc_parts.append(f"Page {page}")
@@ -150,15 +202,26 @@ def _build_rag_prompt(query: str, chunks: List[Dict[str, Any]]) -> str:
             loc_parts.append(f"§ {section}")
         location = " | ".join(loc_parts)
 
-        context_parts.append(f"[{rank}] {location}\n{text}")
+        chunk_block = f"[{rank}] {location}\n{text}"
+
+        # Check token budget
+        if used_chars + len(chunk_block) > token_budget:
+            logger.debug("Token budget reached, skipping remaining chunks",
+                         chunks_used=len(context_parts), chunks_total=len(chunks))
+            break
+
+        context_parts.append(chunk_block)
+        used_chars += len(chunk_block)
 
     context_block = "\n\n".join(context_parts)
 
+    # Build ChatML formatted prompt
     prompt = (
-        f"<|system|>\n{system}\n\n"
-        f"<|context|>\n{context_block}\n\n"
-        f"<|user|>\n{query}\n\n"
-        f"<|assistant|>\n"
+        f"<|im_start|>system\n{_SYSTEM_PROMPT}<|im_end|>\n"
+        f"<|im_start|>user\n"
+        f"Sources:\n{context_block}\n\n"
+        f"Question: {query}<|im_end|>\n"
+        f"<|im_start|>assistant\n"
     )
     return prompt
 
@@ -170,20 +233,21 @@ def _extractive_answer(query: str, chunks: List[Dict[str, Any]]) -> str:
     Build a zero-hallucination extractive answer directly from chunks.
     Used when no GGUF model is available.
     Filters out chunks that are completely irrelevant (score < -3.0).
+    Formats output with proper citations for the frontend to render.
     """
     # Filter out highly irrelevant chunks (cross-encoder logits < -3.0)
-    # BM25 scores are usually positive, so they'll pass this safely if reranker is off.
+    # Sigmoid-normalised scores (0-1) will always pass this safely.
     valid_chunks = [c for c in chunks if c.get("score", 0.0) >= -3.0]
 
     if not valid_chunks:
         return (
-            "I could not find relevant information in the indexed documents "
-            "to answer your question. Please ensure your query is related to the "
-            "uploaded documents."
+            "I could not find sufficient information in the uploaded documents "
+            "to answer your question. Please ensure your query is related to "
+            "the uploaded documents."
         )
 
     lines = [
-        f"Based strictly on the indexed documents (extractive mode — no LLM):\n"
+        "Based on the uploaded documents, here are the most relevant excerpts:\n"
     ]
     for chunk in valid_chunks:
         rank = chunk.get("rank", "?")
@@ -200,7 +264,13 @@ def _extractive_answer(query: str, chunks: List[Dict[str, Any]]) -> str:
             citation_parts.append(f"§ {section}")
         citation = " — ".join(citation_parts)
 
-        lines.append(f"**[{rank}] {citation}** (relevance: {score:.3f})")
+        # Format relevance as percentage for readability
+        if 0 <= score <= 1:
+            relevance_str = f"{score * 100:.0f}%"
+        else:
+            relevance_str = f"{score:.3f}"
+
+        lines.append(f"**[{rank}] {citation}** (relevance: {relevance_str})")
         lines.append(text)
         lines.append("")
 
@@ -246,7 +316,7 @@ class RAGGenerator:
             max_tokens=settings.llm.max_tokens,
             temperature=settings.llm.temperature,
             echo=False,
-            stop=["<|user|>", "<|system|>", "\n\n\n"],
+            stop=["<|im_end|>", "<|im_start|>"],
         )
         return response["choices"][0]["text"].strip()
 

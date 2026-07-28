@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import string
 from typing import List, Optional
 from uuid import UUID
 
@@ -74,6 +75,12 @@ class MetadataFilter:
         return stmt
 
 
+def _clean_tokens(text: str) -> List[str]:
+    """Lowercase, strip punctuation, split on whitespace, and drop small tokens."""
+    cleaned = text.lower().translate(str.maketrans("", "", string.punctuation))
+    return [t for t in cleaned.split() if len(t) > 1]
+
+
 class BM25Index:
     """
     Lightweight in-memory BM25 index built from a list of Chunk objects.
@@ -88,7 +95,7 @@ class BM25Index:
         self.N = len(chunks)
 
         # Tokenise
-        self.tokenized = [c.text.lower().split() for c in chunks]
+        self.tokenized = [_clean_tokens(c.text) for c in chunks]
         doc_lengths = np.array([len(t) for t in self.tokenized], dtype=np.float32)
         self.avgdl = float(doc_lengths.mean()) if self.N > 0 else 1.0
         self.doc_lengths = doc_lengths
@@ -108,7 +115,7 @@ class BM25Index:
         if self.N == 0:
             return np.array([], dtype=np.float32)
 
-        query_terms = query.lower().split()
+        query_terms = _clean_tokens(query)
         if not query_terms:
             return np.zeros(self.N, dtype=np.float32)
 
@@ -199,6 +206,12 @@ class HybridRetriever:
             logger.warning("No indexed chunks found in database")
             return []
 
+        # ── Query Expansion ───────────────────────────────────────────────────
+        from src.retrieval.query_expander import QueryExpander
+        expander = QueryExpander(max_expansions=2)
+        expanded_queries = expander.expand(query)
+        search_query = " ".join(expanded_queries)
+
         # ── Dense retrieval ─────────────────────────────────────────────────
         model = await asyncio.to_thread(self._get_model)
         query_embedding = await asyncio.to_thread(
@@ -217,9 +230,9 @@ class HybridRetriever:
         denom = np.where(denom == 0, 1e-9, denom)
         dense_scores = (chunk_matrix @ query_vec) / denom  # (N,)
 
-        # ── Sparse retrieval (BM25) ──────────────────────────────────────────
+        # ── Sparse retrieval (BM25) with expanded query ───────────────────────
         bm25 = BM25Index(chunks)
-        sparse_scores = bm25.score(query)
+        sparse_scores = bm25.score(search_query)
 
         # ── Normalise and fuse ───────────────────────────────────────────────
         norm_dense = _min_max_normalize(dense_scores)

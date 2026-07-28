@@ -528,3 +528,191 @@ body {
     0%, 80%, 100% { transform: scale(0); }
     40% { transform: scale(1); }
 }
+
+/* ── Citation Badges ── */
+.citation-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3));
+    color: #e0b0ff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    vertical-align: super;
+    margin: 0 2px;
+    border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.citation-badge:hover {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.6), rgba(236, 72, 153, 0.6));
+    transform: scale(1.15);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+/* ── Answer Header ── */
+.answer-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 0.75rem;
+}
+
+.mode-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.answer-text {
+    line-height: 1.7;
+    font-size: 0.95rem;
+}
+
+/* ── Sources Container ── */
+.sources-container {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sources-header {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.source-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.source-card:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(168, 85, 247, 0.3);
+}
+
+.source-highlight {
+    border-color: var(--accent-color) !important;
+    background: rgba(168, 85, 247, 0.1) !important;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+    animation: highlightPulse 2s ease-out;
+}
+
+@keyframes highlightPulse {
+    0% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.4); }
+    100% { box-shadow: 0 0 0px rgba(168, 85, 247, 0); }
+}
+
+.source-rank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--gradient-1), var(--gradient-2));
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.source-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.source-doc-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.source-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.source-page, .source-section, .source-relevance {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.source-relevance {
+    color: #a855f7;
+}
+
+/* ── Faithfulness Meter ── */
+.faithfulness-meter {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.faith-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.faith-bar-bg {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.faith-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+.faith-value {
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: right;
+}
+
+/* ── AI Bubble Enhancements ── */
+.ai-bubble {
+    max-width: 100%;
+}
+
+.ai-message .message-bubble {
+    border-top-left-radius: 4px;
+}

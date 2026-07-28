@@ -23,6 +23,7 @@ CPU budget on i5-12500H:
 from __future__ import annotations
 
 import asyncio
+import math
 from typing import List, Optional
 
 from application_configuration.logger_setup import get_logger
@@ -43,12 +44,15 @@ def _load_cross_encoder():
     if _cross_encoder_attempted:
         return _cross_encoder
 
-    _cross_encoder_attempted = True
     try:
         from sentence_transformers import CrossEncoder
 
-        logger.info("Loading cross-encoder reranker model", model=RERANKER_MODEL)
-        _cross_encoder = CrossEncoder(RERANKER_MODEL, device="cpu")
+        logger.info("Loading cross-encoder reranker model (Offline Mode)", model=RERANKER_MODEL)
+        try:
+            _cross_encoder = CrossEncoder(RERANKER_MODEL, device="cpu", local_files_only=True)
+        except Exception:
+            _cross_encoder = CrossEncoder(RERANKER_MODEL, device="cpu")
+        _cross_encoder_attempted = True
         logger.info("Cross-encoder model loaded successfully")
     except Exception as exc:
         logger.warning(
@@ -122,13 +126,15 @@ class CrossEncoderReranker:
             logger.warning("Cross-encoder inference failed — falling back", error=str(exc))
             return candidates[:k]
 
+        # Convert raw logits to sigmoid scores
+        sigmoid_scores = [1.0 / (1.0 + math.exp(-s)) for s in raw_scores.tolist()]
+
         # Pair scores with chunks and sort
         reranked = sorted(
-            zip(raw_scores.tolist(), [c for _, c in candidates]),
+            zip(sigmoid_scores, [c for _, c in candidates]),
             key=lambda x: x[0],
             reverse=True,
         )
-
         logger.info(
             "Reranking complete",
             input_candidates=len(candidates),

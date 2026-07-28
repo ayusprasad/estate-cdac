@@ -1,0 +1,9 @@
+Task,Input,Output,Code Files,Test Command,Pass Criteria
+TASK 1: PDF Parser,PDF files in /mnt/agents/data/pdfs/,ingested_pdfs/ JSON,pdf_parser.py,python pdf_parser.py,250 docs parsed | all tables intact | pages extracted
+TASK 2: Chunker,Ingested PDFs,chunks.json (98k chunks),chunker.py,python chunker.py,400 chunks per 100-page PDF | avg ~384 tokens | no sentence split
+TASK 3: Embedding,chunks.json,pgvector DB + index,embedding.py,psql ragdb -c "SELECT COUNT(*) FROM chunks;",98k+ chunks in DB | all with embedding vectors | HNSW index active
+TASK 4: Hybrid Search,query string,top 10 ranked chunks,search.py,python search_test.py "sample query",answer chunk in top 10 | fusion score > 0.5
+TASK 5: LLM Generator,query + retrieved chunks,answer + citations,generator.py,python generator_test.py,answer generated | citation format [Source: doc_id, Page X] | no hallucination
+TASK 6: Citation Verifier,answer + chunks,faithfulness score,citation_verifier.py,python verifier_test.py,true answer > 0.6 overlap | false answer < 0.6
+TASK 7: Eval Pipeline,100+ QA pairs in qa_test_set.jsonl,metrics.json,eval.py,python eval.py,grade >= A (score >= 80) | recall >= 0.90 | accuracy >= 0.85
+TASK 8: Full Pipeline,250 PDFs + test set,metrics.json + final score,main.py,python main.py,grade A+ (90+) OR grade A (80+) | zero false negatives on test set
